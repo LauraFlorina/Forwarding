@@ -1,0 +1,113 @@
+Nume: Talina Laura-Florina
+Grupa: 324CB
+
+Tema Protocoale de Comunicatii
+Plecand de la scheletul oferit de echipa de PC, s-au implementat "router.c"
+si functiile amintite mai jos in vederea realizarii functionalitatii cerintei.
+
+router.c
+
+Tabelele rtable, arp_table sunt declarate global, alaturi de dimensiunile lor.
+
+Descrierea fluxului din main:
+Se declara la nivelul routerului o coada de packete.
+Pentru fiecare pachet primit se scot headerele eth, ip, icmp, arp si se fac
+verificari succesive:
+	- Daca se primeste arp request, se trimite arp reply
+	- Daca se primeste arp reply se updateaza tabela arp si se trimit
+	pachetele din coada corespunzatoare, daca exista.
+	- Daca se primeste echi request, se trimite echo reply.
+	- Se verifica checksum-ul pachetului primit. Daca checksum-ul este gresit
+	se arunca pachetul pe jos.
+	- Se verifica TTL, iar daca este gresit se trimite o eroare icmp.
+	- Se cauta ruta cea mai buna. In cazul in care nu exista se trimite
+	o eroare icmp.
+	-Se verifica daca mac-ul next_hop ului este cunoscut. Daca acesta nu este
+	cunoscut, atunci se trimite arp request si se introduce pachetul in coada.
+	Daca mac-ul este cunoscut, atunci se completeaza headerul de ethernet,
+	se decrementeaza ttl, se recalculeaza checksum-ul si se trimite pachetul.
+
+In main sunt folosite urmatoarele functii ajutatoare:
+
+struct route_table_entry *get_best_route(__u32 dest_ip);
+	Primeste un ip destinatie, si cauta in tabela de routare cea mai buna
+	ruta. Returneaza adresa intrarii din tabela pentru cea mai buna ruta.
+
+int validate_checksum(struct iphdr *ip_hdr);
+	Verifica checksum-ul pachetului primit. Daca acesta este corect atunci
+	returneaza 1, daca este gresit se returneaza 0.
+
+int check_ttl(struct iphdr *ip_hdr);
+	Verifica TTL-ul pachetului. Daca este <=1 atunci se returneaza -1.
+	Altfel se returneaza 0.
+	Se face comparare <= 1, deoarece in main, intai este verificat TTL-ul
+	iar daca acesta este valid, se va realiza decrementarea lui ulterioara.
+
+int find_mac_by_ip(uint32_t ip, uint8_t *d_mac);
+	Primeste un ip, si un mac, cauta o intrare avand ip-ul dat in tabela
+	arp, iar daca nu gaseste returneaza 0. Daca este gasita o intrare in
+	tabela cu ip-ul dat, atunci returneaza mac-ul corespunzator prin efect
+	lateral.
+
+void complete_ethhdr(struct ether_header *eth_hdr,
+	                struct route_table_entry *best_route);
+	Completeaza headerul ethernet al pachetului, in acord
+	cu o intrare in tabela de routare, best_route.
+
+void recalculate_checksum(struct iphdr *ip_hdr);
+	Recalculeaza checksum-ul packetului.
+
+int dest_reached(uint32_t ip);
+	Primeste un ip si verifica daca acesta se gaseste printre interfetele
+	routerului. In caz afirmativ, returneaza interfata, altfel -1;
+
+int check_echo_req(struct iphdr *ip_hdr, struct icmphdr *icmp_hdr);
+	Verifica daca s-a primit un echo request.
+
+void send_icmp_reply(struct ether_header *eth_hdr,
+					struct iphdr *ip_hdr,
+					struct icmphdr *icmp_hdr,
+					int m_interface);
+	Trimite icmp reply.
+
+int check_arp_req(struct arp_header *arp_hdr);
+	Verifica daca s-a primit un arp reply.
+
+void send_arp_reply(struct arp_header *arp_hdr,
+					int m_interface);
+	Trimite un arp reply.
+	Creeaza un nou header eth, pe care il populeaza cu valorile corespunzatoare
+	apoi se apeleaza functia send_arp.
+
+int check_mac_known(uint32_t ip);
+	Fiind dat un ip, se cauta in tabela arp daca exista o intrare care
+	sa aiba acel ip.
+
+void send_arp_req(struct route_table_entry *best_route);
+	Trimite arp request. Se creeaza un nou header eth, care este populat
+	cu valorile corespunzatoare si se apeleaza functia send_arp.
+
+int check_arp_reply(struct arp_header *arp_hdr);
+	Verifica daca s-a primit un arp reply. Intoarce 1 daca da, si 0 daca nu.
+
+void update_arp_table(uint32_t ip, uint8_t *mac);
+	Introduce in tabela arp o noua intrare avand ip-ul si mac-ul
+	specificat.
+
+void send_queue_packets(queue q, uint32_t d_ip);
+	Primeste o coada si un ip destinatie.
+	Se calculeaza best_route pentru fiecare pachet in parte
+	si daca next_hop-ul pachetului este egal cu ip-ul primit ca
+	parametru, atunci se trimite pachetul. Altfel,
+	pachetul este introdus intr-o coada aux, care ajuta la restaurarea
+	cozii initiale.
+
+
+
+
+
+
+
+
+
+
